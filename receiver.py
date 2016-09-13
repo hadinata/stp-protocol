@@ -25,6 +25,9 @@ receiverSocket.bind(('', receiver_port))
 # current sequence number:
 seqno_rec = 66400;
 
+# current sender sequence number:
+curr_sender_sqn
+
 # header indices constants:
 PORT = 0
 SEQ_NUM = PORT + PORT_BYTES
@@ -92,6 +95,7 @@ while 1:
     message, fromAddress = receiverSocket.recvfrom(2048)
     fromIP, fromPort = fromAddress
     fromSQN = int(getHeaderElement(message,SEQ_NUM))
+    curr_sender_sqn = fromSQN
     if (int(message[SYN_FLAG]) == 1 and int(message[ACK_FLAG]) == 0):
         print "SYN"
         modifiedMessage = message
@@ -113,7 +117,11 @@ while 1:
     data_size = int(getHeaderElement(message, DATA_SIZE))
     print "SENDER SEQ NUM: " + str(sender_seq_num)
     print "DATA SIZE: " + str(data_size)
-    print message[START_DATA:]
+    # duplicate handling:
+    if (sender_seq_num == curr_sender_sqn):
+        print "Duplicate detected - seq num: " + sender_seq_num
+    else:
+        print message[START_DATA:]
     modifiedMessage = createAckHeader(sender_seq_num+data_size, fromPort)
     print "SENDING ACK NUM: " + str(sender_seq_num+data_size)
     print "SENDING (ACTUAL) ACK NUM: " + getHeaderElement(modifiedMessage,ACK_NUM)
