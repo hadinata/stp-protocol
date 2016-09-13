@@ -90,7 +90,8 @@ header = port + seq_num + ack_num + syn_flag + ack_flag + fin_flag + data_size
 
 # SYN
 # set SYN flag to 1:
-message = header[:SYN_FLAG] + str(1) + header[ACK_FLAG:]
+message = header
+message = modifyHeader(message, SYN_FLAG, 1)
 
 # send SYN:
 senderSocket.sendto(message,(receiver_host_ip, receiver_port))
@@ -100,10 +101,16 @@ senderSocket.sendto(message,(receiver_host_ip, receiver_port))
 while 1:
     recv_message, fromAddress = senderSocket.recvfrom(2048)
     fromIP, fromPort = fromAddress
-    print "Received from rec: " + recv_message
+    fromACK = int(recv_message[ACK_NUM:SYN_FLAG])
+    fromSQN = int(message[SEQ_NUM:ACK_NUM])
+    print "Received from rec: " + recv_message + " with ack_num: " + str(fromACK)
     if (int(recv_message[SYN_FLAG]) == 1 and int(recv_message[ACK_FLAG]) == 1):
-        print "SYNACK"
-        modifiedMessage = modifyHeader(recv_message, SYN_FLAG, 0)   # set syn flag to 0
-        modifiedMessage = modifyHeader(message, PORT, fromPort)     # set new port
+        print "received SYNACK"
+        # send ACK:
+        modifiedMessage = recv_message
+        modifiedMessage = modifyHeader(modifiedMessage, SYN_FLAG, 0)    # set syn flag to 0
+        modifiedMessage = modifyHeader(modifiedMessage, SEQ_NUM, seqno_sender)
+        modifiedMessage = modifyHeader(modifiedMessage, ACK_NUM, fromSQN+1)
+        modifiedMessage = modifyHeader(modifiedMessage, PORT, fromPort) # set new port
         senderSocket.sendto(modifiedMessage, fromAddress)
         break

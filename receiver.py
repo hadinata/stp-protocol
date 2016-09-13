@@ -55,14 +55,16 @@ def modifyHeader(header, component, value):
 
     return modifiedHeader
 
-
 # handle receiving SYN
 while 1:
     message, fromAddress = receiverSocket.recvfrom(2048)
     fromIP, fromPort = fromAddress
+    fromSQN = int(message[SEQ_NUM:ACK_NUM])
     if (int(message[SYN_FLAG]) == 1 and int(message[ACK_FLAG]) == 0):
         print "SYN"
         modifiedMessage = message
         modifiedMessage = modifyHeader(modifiedMessage, ACK_FLAG, 1)    # set ack flag
+        modifiedMessage = modifyHeader(modifiedMessage, SEQ_NUM, seqno_rec)
+        modifiedMessage = modifyHeader(modifiedMessage, ACK_NUM, fromSQN+1)
         modifiedMessage = modifyHeader(modifiedMessage, PORT, fromPort) # set new port
         receiverSocket.sendto(modifiedMessage, fromAddress)
