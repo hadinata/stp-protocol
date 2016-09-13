@@ -39,7 +39,28 @@ ACK_NUM = SEQ_NUM + SEQ_NUM_BYTES
 SYN_FLAG = ACK_NUM + ACK_NUM_BYTES
 ACK_FLAG = SYN_FLAG + 1
 FIN_FLAG = ACK_FLAG + 1
-DATA_FLAG = FIN_FLAG + DATA_SIZE_BYTES
+DATA_SIZE = FIN_FLAG + DATA_SIZE_BYTES
+
+def modifyHeader(header, component, value):
+
+    modifiedHeader = header
+
+    if (component == PORT):
+        modifiedHeader = str(value).zfill(PORT_BYTES) + header[SEQ_NUM:]
+    elif (component == SEQ_NUM):
+        modifiedHeader = header[:SEQ_NUM] + str(value).zfill(SEQ_NUM_BYTES) + header[ACK_NUM:]
+    elif (component == ACK_NUM):
+        modifiedHeader = header[:ACK_NUM] + str(value).zfill(ACK_NUM_BYTES) + header[SYN_FLAG:]
+    elif (component == SYN_FLAG):
+        modifiedHeader = header[:SYN_FLAG] + str(value).zfill(1) + header[ACK_FLAG:]
+    elif (component == ACK_FLAG):
+        modifiedHeader = header[:ACK_FLAG] + str(value).zfill(1) + header[FIN_FLAG:]
+    elif (component == FIN_FLAG):
+        modifiedHeader = header[:FIN_FLAG] + str(value).zfill(1) + header[DATA_SIZE:]
+    elif (component == DATA_SIZE):
+        modifiedHeader = header[:DATA_SIZE] + str(value).zfill(DATA_SIZE_BYTES)
+
+    return modifiedHeader
 
 # isn
 isn = 0;
@@ -49,7 +70,6 @@ seqno_sender = isn;
 
 
 # initialise state:
-state =
 
 # Declare client socket
 senderSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -78,11 +98,12 @@ senderSocket.sendto(message,(receiver_host_ip, receiver_port))
 # SYNACK
 # handle receiving SYNACK:
 while 1:
-    recv_message, clientAddress = senderSocket.recvfrom(2048)
+    recv_message, fromAddress = senderSocket.recvfrom(2048)
+    fromIP, fromPort = fromAddress
     print "Received from rec: " + recv_message
     if (int(recv_message[SYN_FLAG]) == 1 and int(recv_message[ACK_FLAG]) == 1):
         print "SYNACK"
-        # send ack:
-        modifiedMessage = recv_message[:SYN_FLAG] + str(0) + recv_message[ACK_FLAG:]
-        senderSocket.sendto(modifiedMessage, clientAddress)
+        modifiedMessage = modifyHeader(recv_message, SYN_FLAG, 0)   # set syn flag to 0
+        modifiedMessage = modifyHeader(message, PORT, fromPort)     # set new port
+        senderSocket.sendto(modifiedMessage, fromAddress)
         break
