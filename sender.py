@@ -41,6 +41,20 @@ ACK_FLAG = SYN_FLAG + 1
 FIN_FLAG = ACK_FLAG + 1
 DATA_SIZE = FIN_FLAG + DATA_SIZE_BYTES
 
+# isn:
+isn = 33200
+
+# initial sequence and ack numbers:
+seqno_sender = isn
+current_ack = 0
+
+# state constants:
+
+
+# initialise state:
+
+
+
 def modifyHeader(header, component, value):
 
     modifiedHeader = header
@@ -62,29 +76,44 @@ def modifyHeader(header, component, value):
 
     return modifiedHeader
 
-# isn
-isn = 0;
-seqno_sender = isn;
 
-# state constants:
+# returns header component (as a string)
+def getHeaderElement(header, component):
+    if (component == PORT):
+        value = header[PORT:PORT+PORT_BYTES]
+    elif (component == SEQ_NUM):
+        value = header[SEQ_NUM:SEQ_NUM+SEQ_NUM_BYTES]
+    elif (component == ACK_NUM):
+        value = header[ACK_NUM:ACK_NUM_BYTES]
+    elif (component == SYN_FLAG):
+        value = header[SYN_FLAG:SYN_FLAG+1]
+    elif (component == ACK_FLAG):
+        value = header[ACK_FLAG:ACK_FLAG+1]
+    elif (component == FIN_FLAG):
+        value = header[FIN_FLAG:FIN_FLAG+1]
+    elif (component == DATA_SIZE):
+        value = header[DATA_SIZE+DATA_SIZE_BYTES]
+    return value
 
 
-# initialise state:
+def createCurrentHeader():
+    port = str(receiver_port).zfill(PORT_BYTES)
+    seq_num = str(seqno_sender).zfill(SEQ_NUM_BYTES)
+    ack_num = str(current_ack).zfill(ACK_NUM_BYTES)
+    syn_flag = str(0)
+    ack_flag = str(0)
+    fin_flag = str(0)
+    data_size = str(0).zfill(DATA_SIZE_BYTES)
+
+    header = port + seq_num + ack_num + syn_flag + ack_flag + fin_flag + data_size
+    return header
+
 
 # Declare client socket
 senderSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-# intiial header elements:
-port = str(receiver_port).zfill(5)
-seq_num = str(seqno_sender).zfill(SEQ_NUM_BYTES);
-ack_num = str(0).zfill(ACK_NUM_BYTES);
-syn_flag = str(0);
-ack_flag = str(0);
-fin_flag = str(0);
-data_size = str(0).zfill(DATA_SIZE_BYTES);
-
-# create header
-header = port + seq_num + ack_num + syn_flag + ack_flag + fin_flag + data_size
+# create initial header
+header = createCurrentHeader()
 
 # Establish connection:
 

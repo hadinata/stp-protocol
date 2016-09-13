@@ -23,7 +23,7 @@ receiverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 receiverSocket.bind(('', receiver_port))
 
 # current sequence number:
-seqno_rec = 0;
+seqno_rec = 66400;
 
 # header indices constants:
 PORT = 0
@@ -54,6 +54,24 @@ def modifyHeader(header, component, value):
         modifiedHeader = header[:DATA_SIZE] + str(value).zfill(DATA_SIZE_BYTES)
 
     return modifiedHeader
+
+# returns header component (as a string)
+def getHeaderElement(header, component):
+    if (component == PORT):
+        value = header[PORT:PORT+PORT_BYTES]
+    elif (component == SEQ_NUM):
+        value = header[SEQ_NUM:SEQ_NUM+SEQ_NUM_BYTES]
+    elif (component == ACK_NUM):
+        value = header[ACK_NUM:ACK_NUM_BYTES]
+    elif (component == SYN_FLAG):
+        value = header[SYN_FLAG:SYN_FLAG+1]
+    elif (component == ACK_FLAG):
+        value = header[ACK_FLAG:ACK_FLAG+1]
+    elif (component == FIN_FLAG):
+        value = header[FIN_FLAG:FIN_FLAG+1]
+    elif (component == DATA_SIZE):
+        value = header[DATA_SIZE+DATA_SIZE_BYTES]
+    return value
 
 # handle receiving SYN
 while 1:
