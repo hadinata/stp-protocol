@@ -158,7 +158,13 @@ for i in range(0, len(segments)):
     header = createCurrentHeader()
     header = modifyHeader(header, DATA_SIZE, len(segments[i]))
     message = header + segments[i]
-    senderSocket.sendto(message, fromAddress)
+    while 1:
+        try:
+            senderSocket.settimeout(1)
+            senderSocket.sendto(message, fromAddress)
+            break
+        except socket.timeout:
+            print "Timed out. Resending segment.."
     print "SENT: " + message
     returned_message, fromAddress = senderSocket.recvfrom(2048)
     received_ack = int(getHeaderElement(returned_message, ACK_NUM))
