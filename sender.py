@@ -39,7 +39,8 @@ ACK_NUM = SEQ_NUM + SEQ_NUM_BYTES
 SYN_FLAG = ACK_NUM + ACK_NUM_BYTES
 ACK_FLAG = SYN_FLAG + 1
 FIN_FLAG = ACK_FLAG + 1
-DATA_SIZE = FIN_FLAG + DATA_SIZE_BYTES
+DATA_SIZE = FIN_FLAG + 1
+START_DATA = DATA_SIZE + DATA_SIZE_BYTES
 
 # isn:
 isn = 33200
@@ -84,7 +85,7 @@ def getHeaderElement(header, component):
     elif (component == SEQ_NUM):
         value = header[SEQ_NUM:SEQ_NUM+SEQ_NUM_BYTES]
     elif (component == ACK_NUM):
-        value = header[ACK_NUM:ACK_NUM_BYTES]
+        value = header[ACK_NUM:ACK_NUM+ACK_NUM_BYTES]
     elif (component == SYN_FLAG):
         value = header[SYN_FLAG:SYN_FLAG+1]
     elif (component == ACK_FLAG):
@@ -92,7 +93,7 @@ def getHeaderElement(header, component):
     elif (component == FIN_FLAG):
         value = header[FIN_FLAG:FIN_FLAG+1]
     elif (component == DATA_SIZE):
-        value = header[DATA_SIZE+DATA_SIZE_BYTES]
+        value = header[DATA_SIZE:DATA_SIZE+DATA_SIZE_BYTES]
     return value
 
 
@@ -133,8 +134,9 @@ while 1:
     fromACK = int(recv_message[ACK_NUM:SYN_FLAG])
     fromSQN = int(message[SEQ_NUM:ACK_NUM])
     print "Received from rec: " + recv_message + " with ack_num: " + str(fromACK)
-    if (int(recv_message[SYN_FLAG]) == 1 and int(recv_message[ACK_FLAG]) == 1):
+    if (int(getHeaderElement(recv_message,SYN_FLAG)) == 1 and int(getHeaderElement(recv_message,ACK_FLAG)) == 1):
         print "received SYNACK"
+        seqno_sender = fromACK
         # send ACK:
         modifiedMessage = recv_message
         modifiedMessage = modifyHeader(modifiedMessage, SYN_FLAG, 0)    # set syn flag to 0
@@ -143,3 +145,28 @@ while 1:
         modifiedMessage = modifyHeader(modifiedMessage, PORT, fromPort) # set new port
         senderSocket.sendto(modifiedMessage, fromAddress)
         break
+
+# Now ready to send data:
+
+f = open(filename)
+filestring = f.read()
+segments = [filestring[i:i+mss] for i in range(0, len(filestring), mss)]
+
+# send data using stop and wait:
+for i in range(0, len(segments)):
+    print "SENDING Segment " + str(i)
+    header = createCurrentHeader()
+    header = modifyHeader(header, DATA_SIZE, len(segments[i]))
+    message = header + segments[i]
+    senderSocket.sendto(message, fromAddress)
+    print "SENT: " + message
+    returned_message, fromAddress = senderSocket.recvfrom(2048)
+    received_ack = int(getHeaderElement(returned_message, ACK_NUM))
+    print "RECEIVED ACK: " + str(received_ack)
+    seqno_sender = received_ack
+    print "Segment " + str(i) + " acknowledged with ack num: " + str(received_ack)
+    # if (received_ack >= seqno_sender + len(segments[i])):
+    #     seqno_sender = received_ack
+    #     print "SEGMENT " + str(i) + " successfully transmitted!"
+
+    print "\n"

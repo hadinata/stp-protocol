@@ -32,7 +32,8 @@ ACK_NUM = SEQ_NUM + SEQ_NUM_BYTES
 SYN_FLAG = ACK_NUM + ACK_NUM_BYTES
 ACK_FLAG = SYN_FLAG + 1
 FIN_FLAG = ACK_FLAG + 1
-DATA_SIZE = FIN_FLAG + DATA_SIZE_BYTES
+DATA_SIZE = FIN_FLAG + 1
+START_DATA = DATA_SIZE + DATA_SIZE_BYTES
 
 def modifyHeader(header, component, value):
 
@@ -62,7 +63,7 @@ def getHeaderElement(header, component):
     elif (component == SEQ_NUM):
         value = header[SEQ_NUM:SEQ_NUM+SEQ_NUM_BYTES]
     elif (component == ACK_NUM):
-        value = header[ACK_NUM:ACK_NUM_BYTES]
+        value = header[ACK_NUM:ACK_NUM+ACK_NUM_BYTES]
     elif (component == SYN_FLAG):
         value = header[SYN_FLAG:SYN_FLAG+1]
     elif (component == ACK_FLAG):
@@ -70,14 +71,27 @@ def getHeaderElement(header, component):
     elif (component == FIN_FLAG):
         value = header[FIN_FLAG:FIN_FLAG+1]
     elif (component == DATA_SIZE):
-        value = header[DATA_SIZE+DATA_SIZE_BYTES]
+        value = header[DATA_SIZE:DATA_SIZE+DATA_SIZE_BYTES]
     return value
+
+def createAckHeader(ack_num, port):
+    port = str(port).zfill(PORT_BYTES)
+    seq_num = str(seqno_rec).zfill(SEQ_NUM_BYTES)
+    ack_num = str(ack_num).zfill(ACK_NUM_BYTES)
+    syn_flag = str(0)
+    ack_flag = str(0)
+    fin_flag = str(0)
+    data_size = str(0).zfill(DATA_SIZE_BYTES)
+
+    header = port + seq_num + ack_num + syn_flag + ack_flag + fin_flag + data_size
+    return header
+
 
 # handle receiving SYN
 while 1:
     message, fromAddress = receiverSocket.recvfrom(2048)
     fromIP, fromPort = fromAddress
-    fromSQN = int(message[SEQ_NUM:ACK_NUM])
+    fromSQN = int(getHeaderElement(message,SEQ_NUM))
     if (int(message[SYN_FLAG]) == 1 and int(message[ACK_FLAG]) == 0):
         print "SYN"
         modifiedMessage = message
@@ -86,3 +100,22 @@ while 1:
         modifiedMessage = modifyHeader(modifiedMessage, ACK_NUM, fromSQN+1)
         modifiedMessage = modifyHeader(modifiedMessage, PORT, fromPort) # set new port
         receiverSocket.sendto(modifiedMessage, fromAddress)
+        break
+
+# handle ACK:
+message, fromAddress = receiverSocket.recvfrom(2048)
+
+# handle receiving segment packets
+while 1:
+    message, fromAddress = receiverSocket.recvfrom(2048)
+    fromIP, fromPort = fromAddress
+    sender_seq_num = int(getHeaderElement(message,SEQ_NUM))
+    data_size = int(getHeaderElement(message, DATA_SIZE))
+    print "SENDER SEQ NUM: " + str(sender_seq_num)
+    print "DATA SIZE: " + str(data_size)
+    print message[START_DATA:]
+    modifiedMessage = createAckHeader(sender_seq_num+data_size, fromPort)
+    print "SENDING ACK NUM: " + str(sender_seq_num+data_size)
+    print "SENDING (ACTUAL) ACK NUM: " + getHeaderElement(modifiedMessage,ACK_NUM)
+    receiverSocket.sendto(modifiedMessage, fromAddress)
+    print '\n'
