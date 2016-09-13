@@ -26,7 +26,7 @@ receiverSocket.bind(('', receiver_port))
 seqno_rec = 66400;
 
 # current sender sequence number:
-curr_sender_sqn
+curr_sender_sqn = 0
 
 # header indices constants:
 PORT = 0

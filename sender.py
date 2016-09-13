@@ -132,6 +132,7 @@ while 1:
     recv_message, fromAddress = senderSocket.recvfrom(2048)
     fromIP, fromPort = fromAddress
     fromACK = int(recv_message[ACK_NUM:SYN_FLAG])
+    current_ack = fromACK
     fromSQN = int(message[SEQ_NUM:ACK_NUM])
     print "Received from rec: " + recv_message + " with ack_num: " + str(fromACK)
     if (int(getHeaderElement(recv_message,SYN_FLAG)) == 1 and int(getHeaderElement(recv_message,ACK_FLAG)) == 1):
@@ -162,17 +163,19 @@ for i in range(0, len(segments)):
         try:
             senderSocket.settimeout(1)
             senderSocket.sendto(message, fromAddress)
+            print "SENT: " + message
+            returned_message, fromAddress = senderSocket.recvfrom(2048)
+            received_ack = int(getHeaderElement(returned_message, ACK_NUM))
+            print "RECEIVED ACK: " + str(received_ack)
+            while (received_ack == current_ack):
+                returned_message, fromAddress = senderSocket.recvfrom(2048)
+                received_ack = int(getHeaderElement(returned_message, ACK_NUM))
+                print "RECEIVED ACK: " + str(received_ack)
+            current_ack = received_ack
             break
         except socket.timeout:
             print "Timed out. Resending segment.."
-    print "SENT: " + message
-    returned_message, fromAddress = senderSocket.recvfrom(2048)
-    received_ack = int(getHeaderElement(returned_message, ACK_NUM))
-    print "RECEIVED ACK: " + str(received_ack)
     seqno_sender = received_ack
     print "Segment " + str(i) + " acknowledged with ack num: " + str(received_ack)
-    # if (received_ack >= seqno_sender + len(segments[i])):
-    #     seqno_sender = received_ack
-    #     print "SEGMENT " + str(i) + " successfully transmitted!"
 
     print "\n"
