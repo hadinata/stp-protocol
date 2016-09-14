@@ -55,7 +55,7 @@ current_ack = 0
 # initialise state:
 
 
-
+# modify component of header by assigning it value
 def modifyHeader(header, component, value):
 
     modifiedHeader = header
@@ -96,7 +96,7 @@ def getHeaderElement(header, component):
         value = header[DATA_SIZE:DATA_SIZE+DATA_SIZE_BYTES]
     return value
 
-
+# create default header based on current state
 def createCurrentHeader():
     port = str(receiver_port).zfill(PORT_BYTES)
     seq_num = str(seqno_sender).zfill(SEQ_NUM_BYTES)
@@ -161,8 +161,8 @@ for i in range(0, len(segments)):
     message = header + segments[i]
     while 1:
         try:
-            senderSocket.settimeout(1)
             senderSocket.sendto(message, fromAddress)
+            senderSocket.settimeout(1)
             print "SENT: " + message
             returned_message, fromAddress = senderSocket.recvfrom(2048)
             received_ack = int(getHeaderElement(returned_message, ACK_NUM))

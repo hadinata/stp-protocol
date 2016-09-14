@@ -38,6 +38,7 @@ FIN_FLAG = ACK_FLAG + 1
 DATA_SIZE = FIN_FLAG + 1
 START_DATA = DATA_SIZE + DATA_SIZE_BYTES
 
+# modify component of header by assigning it value
 def modifyHeader(header, component, value):
 
     modifiedHeader = header
@@ -77,12 +78,13 @@ def getHeaderElement(header, component):
         value = header[DATA_SIZE:DATA_SIZE+DATA_SIZE_BYTES]
     return value
 
+# create default header with ACK based on current state
 def createAckHeader(ack_num, port):
     port = str(port).zfill(PORT_BYTES)
     seq_num = str(seqno_rec).zfill(SEQ_NUM_BYTES)
     ack_num = str(ack_num).zfill(ACK_NUM_BYTES)
     syn_flag = str(0)
-    ack_flag = str(0)
+    ack_flag = str(1)
     fin_flag = str(0)
     data_size = str(0).zfill(DATA_SIZE_BYTES)
 
