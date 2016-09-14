@@ -100,6 +100,7 @@ while 1:
     curr_sender_sqn = fromSQN
     if (int(message[SYN_FLAG]) == 1 and int(message[ACK_FLAG]) == 0):
         print "SYN"
+        print "with SEQ number: " + getHeaderElement(message, SEQ_NUM)
         modifiedMessage = message
         modifiedMessage = modifyHeader(modifiedMessage, ACK_FLAG, 1)    # set ack flag
         modifiedMessage = modifyHeader(modifiedMessage, SEQ_NUM, seqno_rec)
@@ -110,6 +111,7 @@ while 1:
 
 # handle ACK:
 message, fromAddress = receiverSocket.recvfrom(2048)
+curr_sender_sqn = int(getHeaderElement(message,SEQ_NUM)) - 1
 
 # handle receiving segment packets
 while 1:
@@ -118,12 +120,15 @@ while 1:
     sender_seq_num = int(getHeaderElement(message,SEQ_NUM))
     data_size = int(getHeaderElement(message, DATA_SIZE))
     print "SENDER SEQ NUM: " + str(sender_seq_num)
+    print "CURR_SENDER_SEQ: " + str(curr_sender_sqn)
     print "DATA SIZE: " + str(data_size)
     # duplicate handling:
     if (sender_seq_num == curr_sender_sqn):
-        print "Duplicate detected - seq num: " + sender_seq_num
+        print "Duplicate detected - seq num: " + str(sender_seq_num)
     else:
         print message[START_DATA:]
+        curr_sender_sqn = int(getHeaderElement(message,SEQ_NUM))
+        print "CURR_SENDER_SEQ IS NOW: " + str(curr_sender_sqn)
     modifiedMessage = createAckHeader(sender_seq_num+data_size, fromPort)
     print "SENDING ACK NUM: " + str(sender_seq_num+data_size)
     print "SENDING (ACTUAL) ACK NUM: " + getHeaderElement(modifiedMessage,ACK_NUM)

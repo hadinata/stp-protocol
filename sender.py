@@ -5,8 +5,9 @@
 # usage:
 # python sender.py localhost 12000 file.txt 10 10 100 0.5 17
 
-import sys
+import random
 import socket
+import sys
 import time
 
 # constants
@@ -24,6 +25,9 @@ mss = int(sys.argv[5]);
 timeout = int(sys.argv[6]);
 pdrop = float(sys.argv[7]);
 seed = int(sys.argv[8]);
+
+# initialise randomiser with seed
+random.seed(seed)
 
 # HEADER STRUCTURE:
 # 5B - receiver port
@@ -153,6 +157,10 @@ f = open(filename)
 filestring = f.read()
 segments = [filestring[i:i+mss] for i in range(0, len(filestring), mss)]
 
+# PLD:
+def generateRandom():
+    return random.random()
+
 # send data using stop and wait:
 for i in range(0, len(segments)):
     print "SENDING Segment " + str(i)
@@ -161,9 +169,13 @@ for i in range(0, len(segments)):
     message = header + segments[i]
     while 1:
         try:
-            senderSocket.sendto(message, fromAddress)
+            rand_value = generateRandom()
+            print rand_value
+            if (rand_value > pdrop):
+                print "got here!"
+                senderSocket.sendto(message, fromAddress)
             senderSocket.settimeout(1)
-            print "SENT: " + message
+            print "SENT: " + message + " with SEQNO: " + getHeaderElement(message, SEQ_NUM)
             returned_message, fromAddress = senderSocket.recvfrom(2048)
             received_ack = int(getHeaderElement(returned_message, ACK_NUM))
             print "RECEIVED ACK: " + str(received_ack)
