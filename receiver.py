@@ -7,12 +7,18 @@
 
 import socket
 import sys
+import time
 
 # constants
 PORT_BYTES = 5
 SEQ_NUM_BYTES = 5
 ACK_NUM_BYTES = 5
 DATA_SIZE_BYTES = 4
+
+# log constants
+SEND = 0
+RCV = 1
+DROP = 2
 
 # arguments
 receiver_port = int(sys.argv[1])
@@ -91,10 +97,56 @@ def createAckHeader(ack_num, port):
     header = port + seq_num + ack_num + syn_flag + ack_flag + fin_flag + data_size
     return header
 
+# create empty log file:
+f = open("Receiver_log.txt", "w")
+f.write("")
+f.close()
+
+# get packet type:
+def getPacketType(packet):
+    packetType = ""
+    if (int(getHeaderElement(packet, DATA_SIZE)) > 0):
+        print "\n\n\n\n\n"
+        print int(getHeaderElement(packet, DATA_SIZE))
+        print "\n\n\n\n\n"
+        packetType += "D"
+    if (int(getHeaderElement(packet, SYN_FLAG)) == 1):
+        packetType += "S"
+    if (int(getHeaderElement(packet, FIN_FLAG)) == 1):
+        packetType += "F"
+    if (int(getHeaderElement(packet, ACK_FLAG)) == 1):
+        packetType += "A"
+    return packetType
+
+# get current time
+def getCurrentTime():
+    return time.asctime(time.localtime(time.time()))
+
+# create log entry:
+def createLogEntry(packet, pkt_type):
+    f = open("Receiver_log.txt", "a")
+    type_string = ""
+    if (pkt_type == SEND):
+        type_string = "snd"
+    elif (pkt_type == RCV):
+        type_string = "rcv"
+    elif (pkt_type == DROP):
+        type_string = "drop"
+    f.write(type_string.ljust(6) + getCurrentTime().ljust(26) + str(getPacketType(packet)).ljust(4)
+            + str(getHeaderElement(packet, SEQ_NUM)).ljust(7) + str(getHeaderElement(packet, DATA_SIZE)).ljust(6)
+            + str(getHeaderElement(packet, ACK_NUM)).ljust(7) + "\n")
+    f.close()
+
+
+
+# -------------------------------------------------------------- #
+
+
 
 # handle receiving SYN
 while 1:
     message, fromAddress = receiverSocket.recvfrom(2048)
+    createLogEntry(message, RCV)
     fromIP, fromPort = fromAddress
     fromSQN = int(getHeaderElement(message,SEQ_NUM))
     curr_sender_sqn = fromSQN
@@ -107,15 +159,18 @@ while 1:
         modifiedMessage = modifyHeader(modifiedMessage, ACK_NUM, fromSQN+1)
         modifiedMessage = modifyHeader(modifiedMessage, PORT, fromPort) # set new port
         receiverSocket.sendto(modifiedMessage, fromAddress)
+        createLogEntry(modifiedMessage, SEND)
         break
 
 # handle ACK:
 message, fromAddress = receiverSocket.recvfrom(2048)
+createLogEntry(message, RCV)
 curr_sender_sqn = int(getHeaderElement(message,SEQ_NUM)) - 1
 
 # handle receiving segment packets
 while 1:
     message, fromAddress = receiverSocket.recvfrom(2048)
+    createLogEntry(message, RCV)
     fromIP, fromPort = fromAddress
     sender_seq_num = int(getHeaderElement(message,SEQ_NUM))
     data_size = int(getHeaderElement(message, DATA_SIZE))
@@ -133,4 +188,5 @@ while 1:
     print "SENDING ACK NUM: " + str(sender_seq_num+data_size)
     print "SENDING (ACTUAL) ACK NUM: " + getHeaderElement(modifiedMessage,ACK_NUM)
     receiverSocket.sendto(modifiedMessage, fromAddress)
+    createLogEntry(modifiedMessage, SEND)
     print '\n'

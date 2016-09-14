@@ -64,12 +64,6 @@ current_ack = 0
 # initialise state:
 
 
-# create empty log file:
-f = open("Sender_log.txt", "w")
-f.write("")
-f.close()
-
-
 # modify component of header by assigning it value
 def modifyHeader(header, component, value):
 
@@ -124,13 +118,15 @@ def createCurrentHeader():
     header = port + seq_num + ack_num + syn_flag + ack_flag + fin_flag + data_size
     return header
 
+# create empty log file:
+f = open("Sender_log.txt", "w")
+f.write("")
+f.close()
+
 # get packet type:
 def getPacketType(packet):
     packetType = ""
     if (int(getHeaderElement(packet, DATA_SIZE)) > 0):
-        print "\n\n\n\n\n"
-        print int(getHeaderElement(packet, DATA_SIZE))
-        print "\n\n\n\n\n"
         packetType += "D"
     if (int(getHeaderElement(packet, SYN_FLAG)) == 1):
         packetType += "S"
