@@ -31,6 +31,9 @@ timeout = int(sys.argv[6]);
 pdrop = float(sys.argv[7]);
 seed = int(sys.argv[8]);
 
+# receiver address:
+receiverAddress = (receiver_host_ip, receiver_port)
+
 # initialise randomiser with seed
 random.seed(seed)
 
@@ -200,41 +203,120 @@ while 1:
 f = open(filename)
 filestring = f.read()
 segments = [filestring[i:i+mss] for i in range(0, len(filestring), mss)]
+f.close()
 
 # PLD:
 def generateRandom():
     return random.random()
 
-# send data using stop and wait:
-for i in range(0, len(segments)):
-    print "SENDING Segment " + str(i)
-    header = createCurrentHeader()
-    header = modifyHeader(header, DATA_SIZE, len(segments[i]))
-    message = header + segments[i]
-    while 1:
-        try:
-            rand_value = generateRandom()
-            print rand_value
-            if (rand_value > pdrop):
-                print "got here!"
-                senderSocket.sendto(message, fromAddress)
-                createLogEntry(message, SEND)
-            senderSocket.settimeout(timeout/1000) # convert timeout in ms to seconds
-            print "SENT: " + message + " with SEQNO: " + getHeaderElement(message, SEQ_NUM)
+def sendWithPLD(message):
+    rand_value = random.random()
+    if (rand_value > pdrop):
+        senderSocket.sendto(message, receiverAddress)
+        createLogEntry(message, SEND)
+
+
+# size of window (in terms of the number of segments it can hold)
+window_n = mws/mss
+
+# window parameters
+start = 0
+end = start+window_n
+
+# sent index list
+sent = [False] * len(segments)
+
+# segmentIndex
+def segIndexToSeqNum(segIndex):
+    return isn+1+(segIndex*mss)
+
+# list of segments sent but not yet acked
+not_yet_acked = []
+
+not_yet_acked_sqn = []
+for i in range (0, len(segments)):
+    not_yet_acked_sqn.append(segIndexToSeqNum(i))
+print not_yet_acked_sqn
+
+# shift window:
+def moveWindowAlong():
+    global start
+    global end
+    shifted_by = 0
+    # while (int(getHeaderElement(segments[start],SEQ_NUM)) + int(getHeaderElement(segments[start],DATA_SIZE)) not in not_yet_acked):
+    # while (segments[start] and segments[start] not in not_yet_acked):
+    # for message in not_yet_acked:
+    #print segIndexToSeqNum(start)
+    while (len(not_yet_acked_sqn) > 0 and segIndexToSeqNum(start) not in not_yet_acked_sqn):
+        #print "windowingg"
+        start += 1
+        shifted_by += 1
+    if (len(not_yet_acked_sqn) <= 0):
+        start = len(segments)
+    if (end + shifted_by > len(segments)):
+        end = len(segments)
+    else:
+        end += shifted_by
+
+
+
+while 1:
+
+    print "START: " + str(start) + "   END: " + str(end)
+
+    if (start >= end):
+        break
+
+    # send segments in window
+    for i in range (start, end):
+        if (sent[i] == False):
+            print "Here!"
+            header = createCurrentHeader()
+            header = modifyHeader(header, DATA_SIZE, len(segments[i]))
+            message = header + segments[i]
+            print message
+            sendWithPLD(message)
+
+            not_yet_acked.append(message)
+            not_yet_acked.sort()
+
+            #not_yet_acked_sqn.append(seqno_sender)
+            #not_yet_acked_sqn.sort()
+
+            next_seqno = int(getHeaderElement(header,SEQ_NUM)) + int(getHeaderElement(header,DATA_SIZE))
+            if (next_seqno > seqno_sender):
+                seqno_sender = next_seqno
+
+    try:
+        senderSocket.settimeout(timeout/1000)
+        while 1:
+            # packet_received = senderSocket.recvfrom(2048)
+            # if not packet_received:
+            #     continue
             returned_message, fromAddress = senderSocket.recvfrom(2048)
             createLogEntry(returned_message, RCV)
             received_ack = int(getHeaderElement(returned_message, ACK_NUM))
-            print "RECEIVED ACK: " + str(received_ack)
-            while (received_ack == current_ack):
-                returned_message, fromAddress = senderSocket.recvfrom(2048)
-                received_ack = int(getHeaderElement(returned_message, ACK_NUM))
-                print "RECEIVED ACK: " + str(received_ack)
-            current_ack = received_ack
-            break
-        except socket.timeout:
-            print "Timed out. Resending segment.."
-            createLogEntry(message, DROP)
-    seqno_sender = received_ack
-    print "Segment " + str(i) + " acknowledged with ack num: " + str(received_ack)
+            oldest_unacked_sqn = int(getHeaderElement(not_yet_acked[0],SEQ_NUM))
+            print "received_ack: " + str(received_ack)
+            print "oldest_unacked_sqn: " + str(oldest_unacked_sqn)
+            print not_yet_acked_sqn
+            if (received_ack > oldest_unacked_sqn):
+                print "here!"
+                for segment in not_yet_acked:
+                    segment_sqn = int(getHeaderElement(segment, SEQ_NUM))
+                    if (segment_sqn < received_ack):
+                        not_yet_acked_sqn.remove(segment_sqn)
+                        not_yet_acked.remove(segment)
+                if (len(not_yet_acked) == 0):
+                    print "break!"
+                    break
+            print not_yet_acked_sqn
+    except socket.timeout:
+        sendWithPLD(not_yet_acked[0])
+        senderSocket.sendto(not_yet_acked[0],(receiver_host_ip, receiver_port))
 
-    print "\n"
+    print "moving window!"
+    moveWindowAlong()
+
+    print start
+    #print segIndexToSeqNum(start)

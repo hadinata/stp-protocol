@@ -205,26 +205,30 @@ while 1:
 
     # if sender_seq_num is the next expected one in order (nx_ssqn)
     elif (sender_seq_num == nx_ssqn):
+        print ("TWO!")
 
         if (inline_ack <= sender_seq_num):              # initial case
             inline_ack = sender_seq_num + data_size
 
         reply = createAckHeader(inline_ack, fromPort)   # reply with ack = inline_ack
+        print "reply: " + reply
         receiverSocket.sendto(reply, fromAddress)       # send reply
+        createLogEntry(reply, SEND)
+        print "HERE"
 
         writeToFile(message[START_DATA:])               # write received data to file
 
         # i = 0                                         # write buffered data to file
         while (len(buffer_list) > 0 and
                 int(getHeaderElement(buffer_list[0],SEQ_NUM)) < inline_ack):
-            buffer_element = buffer_list[i]
+            buffer_element = buffer_list[0]
             writeToFile(buffer_element[START_DATA:])
-            buffer_list.remove(segment)
+            buffer_list.remove(buffer_element)
 
         nx_ssqn = inline_ack        # now set nx_ssqn to inline_ack
 
         if (len(buffer_list) > 0):
-            inline_ack = buffer_list[0] + int(getHeaderElement(buffer_list[0],DATA_SIZE))
+            inline_ack = int(getHeaderElement(buffer_list[0],SEQ_NUM)) + int(getHeaderElement(buffer_list[0],DATA_SIZE))
             k = 1
             while (k < len(buffer_list) and
                     int(getHeaderElement(buffer_list[k],SEQ_NUM)) == inline_ack):
@@ -234,7 +238,10 @@ while 1:
     # if sender_seq_num is bigger than the next expected one
     elif (sender_seq_num > nx_ssqn):
 
+        print ("THREE!")
+
         buffer_list.append(message)                 # append message received from sender to the buffer list
         # sort....
         reply = createAckHeader(nx_ssqn, fromPort)  # reply with ack = next expected sqn num
         receiverSocket.sendto(reply, fromAddress)   # send reply
+        createLogEntry(reply, SEND)
