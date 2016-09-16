@@ -335,10 +335,9 @@ while 1:
                 numTimesReceived[received_ack] = 1
             else:
                 if (numTimesReceived[received_ack] == 4):
-                    print "Fast retransmit"
-                    # fast retransmit..
-                    #
-                    #
+                    print "Fast retransmit!"
+                    sendWithPLD(not_yet_acked[0])
+                    num_retransmitted_segments += 1
                 numTimesReceived[received_ack] += 1
                 num_duplicate_acknowledgements += 1
             oldest_unacked_sqn = int(getHeaderElement(not_yet_acked[0],SEQ_NUM))
