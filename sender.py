@@ -171,6 +171,10 @@ def createLogEntry(packet, pkt_type):
 # Declare client socket
 senderSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+# get default timeout value
+default_socket_timeout = senderSocket.gettimeout()
+print "DEFAULT SOCKET TIMEOUT: " + str(default_socket_timeout)
+
 # create initial header
 header = createCurrentHeader()
 
@@ -391,6 +395,9 @@ fin_packet = createCurrentHeader()
 fin_packet = modifyHeader(fin_packet, FIN_FLAG, 1)
 senderSocket.sendto(fin_packet, receiverAddress)
 createLogEntry(fin_packet, SEND)
+
+# set timeout back to default (none)
+senderSocket.settimeout(default_socket_timeout)
 
 # handle receiving finack:
 while 1:
