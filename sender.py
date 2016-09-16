@@ -59,7 +59,7 @@ DATA_SIZE = FIN_FLAG + 1
 START_DATA = DATA_SIZE + DATA_SIZE_BYTES
 
 # isn:
-isn = 03200
+isn = 13200
 
 # initial sequence and ack numbers:
 seqno_sender = isn
@@ -128,7 +128,7 @@ def createCurrentHeader():
 
 # create new empty log file:
 f = open("Sender_log.txt", "w")
-f.write("TYPE".ljust(6) +  "HH:MM:SS ms".ljust(18) + "".ljust(4) + "SEQ #".ljust(7) + "SIZE".ljust(6) + "ACK #".ljust(7) + "\n\n")
+f.write("TYPE".ljust(6) +  "HH:MM:SS ms".ljust(18) + "".ljust(4) + "SEQ #".ljust(7) + "SIZE".ljust(6) + "ACK #".ljust(7) + "\n")
 f.close()
 
 # get packet type:
