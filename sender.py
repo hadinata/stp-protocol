@@ -194,8 +194,8 @@ while 1:
     recv_message, fromAddress = senderSocket.recvfrom(2048)
     createLogEntry(recv_message, RCV)
     fromIP, fromPort = fromAddress
-    fromACK = int(recv_message[ACK_NUM:SYN_FLAG])
-    fromSQN = int(recv_message[SEQ_NUM:ACK_NUM])
+    fromACK = int(getHeaderElement(recv_message, ACK_NUM))
+    fromSQN = int(getHeaderElement(recv_message, ACK_NUM))
     current_ack = fromSQN+1
     if (int(getHeaderElement(recv_message,SYN_FLAG)) == 1 and int(getHeaderElement(recv_message,ACK_FLAG)) == 1):
         print "Received SYNACK"
@@ -215,6 +215,7 @@ while 1:
 # open file and break it up into segments
 f = open(filename)
 filestring = f.read()
+# line of code below obtained from http://stackoverflow.com/questions/9475241/split-python-string-every-nth-character
 segments = [filestring[i:i+mss] for i in range(0, len(filestring), mss)]
 f.close()
 
