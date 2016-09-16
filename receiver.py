@@ -5,6 +5,7 @@
 # usage:
 # python receiver.py 12000 file.txt
 
+import datetime
 import socket
 import sys
 import time
@@ -117,7 +118,11 @@ def getPacketType(packet):
 
 # get current time
 def getCurrentTime():
-    return time.asctime(time.localtime(time.time()))
+    string = datetime.datetime.now().strftime('%H:%M:%S %f')[:-3]
+    string += "."
+    string += datetime.datetime.now().strftime('%f')[3:]
+    return string
+    # return time.asctime(time.localtime(time.time()))
 
 # create log entry:
 def createLogEntry(packet, pkt_type):
@@ -180,6 +185,7 @@ nx_ssqn = int(getHeaderElement(message,SEQ_NUM))
 
 # inline_ack is the
 inline_ack = nx_ssqn
+print "initial inline_ack" + str(inline_ack)
 
 # buffer list: where non-next segments will be stored
 buffer_list = []
@@ -190,11 +196,16 @@ received = []
 
 # handle receiving segment packets
 while 1:
+    print "\n"
     message, fromAddress = receiverSocket.recvfrom(2048)
     createLogEntry(message, RCV)
     fromIP, fromPort = fromAddress
     sender_seq_num = int(getHeaderElement(message,SEQ_NUM))
     data_size = int(getHeaderElement(message, DATA_SIZE))
+    print "RECEIVED: " + str(sender_seq_num)
+    print received
+    print "nxsqnn: " + str(nx_ssqn)
+    print "inline_ack " + str(inline_ack)
 
     # duplicate handling:
     if (sender_seq_num in received):
@@ -206,42 +217,66 @@ while 1:
     # if sender_seq_num is the next expected one in order (nx_ssqn)
     elif (sender_seq_num == nx_ssqn):
         print ("TWO!")
+        received.append(sender_seq_num)
 
         if (inline_ack <= sender_seq_num):              # initial case
             inline_ack = sender_seq_num + data_size
+            print "INLINE_ACK NOW: " + str(inline_ack)
 
-        reply = createAckHeader(inline_ack, fromPort)   # reply with ack = inline_ack
-        print "reply: " + reply
-        receiverSocket.sendto(reply, fromAddress)       # send reply
-        createLogEntry(reply, SEND)
-        print "HERE"
+        print "BEFORE inline ack " + str(inline_ack)
+        # if (len(buffer_list) > 0):
+        #     inline_ack = int(getHeaderElement(buffer_list[0],SEQ_NUM)) + int(getHeaderElement(buffer_list[0],DATA_SIZE))
+        #     k = 1
+        #     while (k < len(buffer_list) and
+        #             int(getHeaderElement(buffer_list[k],SEQ_NUM)) == inline_ack):
+        #         inline_ack = int(getHeaderElement(buffer_list[k],SEQ_NUM)) + int(getHeaderElement(buffer_list[k],DATA_SIZE))
+        #         k = k+1
 
-        writeToFile(message[START_DATA:])               # write received data to file
+        k = 0
+        while (k < len(buffer_list) and
+                int(getHeaderElement(buffer_list[k],SEQ_NUM)) == inline_ack):
+            inline_ack = int(getHeaderElement(buffer_list[k],SEQ_NUM)) + int(getHeaderElement(buffer_list[k],DATA_SIZE))
+            k = k+1
 
-        # i = 0                                         # write buffered data to file
-        while (len(buffer_list) > 0 and
-                int(getHeaderElement(buffer_list[0],SEQ_NUM)) < inline_ack):
-            buffer_element = buffer_list[0]
-            writeToFile(buffer_element[START_DATA:])
-            buffer_list.remove(buffer_element)
+        print "AFTER inline ack " + str(inline_ack)
 
         nx_ssqn = inline_ack        # now set nx_ssqn to inline_ack
+        print "nxsqnn now: " + str(nx_ssqn)
 
-        if (len(buffer_list) > 0):
-            inline_ack = int(getHeaderElement(buffer_list[0],SEQ_NUM)) + int(getHeaderElement(buffer_list[0],DATA_SIZE))
-            k = 1
-            while (k < len(buffer_list) and
-                    int(getHeaderElement(buffer_list[k],SEQ_NUM)) == inline_ack):
-                inline_ack = int(getHeaderElement(buffer_list[k],SEQ_NUM)) + int(getHeaderElement(buffer_list[k],DATA_SIZE))
-                k = k+1
+        writeToFile(message[START_DATA:])               # write received data to file
+        print "WRITTEN TO FILE: " + str(message[START_DATA:])
+
+        # i = 0                                         # write buffered data to file
+        print "BEFORE"
+        print "inline_ack" + str(inline_ack)
+        print buffer_list
+        while (len(buffer_list) > 0 and
+                int(getHeaderElement(buffer_list[0],SEQ_NUM)) <= inline_ack):
+            buffer_element = buffer_list[0]
+            print "BUFFER ELEMENT WRITTEN TO FILE: " + str(buffer_element)
+            writeToFile(buffer_element[START_DATA:])
+            buffer_list.pop(0)#remove(buffer_element)
+        print "AFTER"
+        print buffer_list
+
+        reply = createAckHeader(inline_ack, fromPort)   # reply with ack = inline_ack
+        print "2reply: " + reply
+        receiverSocket.sendto(reply, fromAddress)       # send reply
+        createLogEntry(reply, SEND)
 
     # if sender_seq_num is bigger than the next expected one
     elif (sender_seq_num > nx_ssqn):
 
         print ("THREE!")
+        received.append(sender_seq_num)
 
+        print "BEFORE APPEND"
+        print buffer_list
         buffer_list.append(message)                 # append message received from sender to the buffer list
-        # sort....
+        buffer_list.sort()
+        print "AFTER APPEND"
+        print buffer_list
         reply = createAckHeader(nx_ssqn, fromPort)  # reply with ack = next expected sqn num
         receiverSocket.sendto(reply, fromAddress)   # send reply
         createLogEntry(reply, SEND)
+        print "3reply: " + reply

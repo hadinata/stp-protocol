@@ -5,6 +5,7 @@
 # usage:
 # python sender.py localhost 12000 file.txt 10 10 100 0.5 17
 
+import datetime
 import random
 import socket
 import sys
@@ -141,7 +142,11 @@ def getPacketType(packet):
 
 # get current time
 def getCurrentTime():
-    return time.asctime(time.localtime(time.time()))
+    string = datetime.datetime.now().strftime('%H:%M:%S %f')[:-3]
+    string += "."
+    string += datetime.datetime.now().strftime('%f')[3:]
+    return string
+    # return time.asctime(time.localtime(time.time()))
 
 # create log entry:
 def createLogEntry(packet, pkt_type):
@@ -182,8 +187,8 @@ while 1:
     createLogEntry(recv_message, RCV)
     fromIP, fromPort = fromAddress
     fromACK = int(recv_message[ACK_NUM:SYN_FLAG])
-    current_ack = fromACK
-    fromSQN = int(message[SEQ_NUM:ACK_NUM])
+    fromSQN = int(recv_message[SEQ_NUM:ACK_NUM])
+    current_ack = fromSQN+1
     print "Received from rec: " + recv_message + " with ack_num: " + str(fromACK)
     if (int(getHeaderElement(recv_message,SYN_FLAG)) == 1 and int(getHeaderElement(recv_message,ACK_FLAG)) == 1):
         print "received SYNACK"
@@ -205,16 +210,6 @@ filestring = f.read()
 segments = [filestring[i:i+mss] for i in range(0, len(filestring), mss)]
 f.close()
 
-# PLD:
-def generateRandom():
-    return random.random()
-
-def sendWithPLD(message):
-    rand_value = random.random()
-    if (rand_value > pdrop):
-        senderSocket.sendto(message, receiverAddress)
-        createLogEntry(message, SEND)
-
 
 # size of window (in terms of the number of segments it can hold)
 window_n = mws/mss
@@ -224,11 +219,16 @@ start = 0
 end = start+window_n
 
 # sent index list
-sent = [False] * len(segments)
+# sent = [False] * len(segments)
+sent = {}
 
 # segmentIndex
 def segIndexToSeqNum(segIndex):
     return isn+1+(segIndex*mss)
+
+# reverse
+def seqNumToSegIndex(seqNum):
+    return (seqNum-1-isn/mss)
 
 # list of segments sent but not yet acked
 not_yet_acked = []
@@ -236,7 +236,27 @@ not_yet_acked = []
 not_yet_acked_sqn = []
 for i in range (0, len(segments)):
     not_yet_acked_sqn.append(segIndexToSeqNum(i))
+    sent[segIndexToSeqNum(i)] = False
 print not_yet_acked_sqn
+
+last_ack_number = segIndexToSeqNum(len(segments)-1)+mss
+
+# PLD:
+def generateRandom():
+    return random.random()
+
+def sendWithPLD(message):
+    rand_value = random.random()
+    print "Random Value: " + str(rand_value)
+    if (rand_value > pdrop):
+        senderSocket.sendto(message, receiverAddress)
+        print "SENDING:"
+        print message
+        createLogEntry(message, SEND)
+    else:
+        createLogEntry(message, DROP)
+    sent[int(getHeaderElement(message,SEQ_NUM))] = True
+
 
 # shift window:
 def moveWindowAlong():
@@ -247,6 +267,8 @@ def moveWindowAlong():
     # while (segments[start] and segments[start] not in not_yet_acked):
     # for message in not_yet_acked:
     #print segIndexToSeqNum(start)
+    print "start is " + str(start) + " with not_yet_acked_sqn being: "
+    print not_yet_acked_sqn
     while (len(not_yet_acked_sqn) > 0 and segIndexToSeqNum(start) not in not_yet_acked_sqn):
         #print "windowingg"
         start += 1
@@ -269,26 +291,30 @@ while 1:
 
     # send segments in window
     for i in range (start, end):
-        if (sent[i] == False):
-            print "Here!"
-            header = createCurrentHeader()
-            header = modifyHeader(header, DATA_SIZE, len(segments[i]))
-            message = header + segments[i]
-            print message
-            sendWithPLD(message)
+        #if (sent[segIndexToSeqNum(i)] == False):
+        print "Here! At i = " + str(i)
+        header = createCurrentHeader()
+        header = modifyHeader(header, DATA_SIZE, len(segments[i]))
+        message = header + segments[i]
+        print message
+        sendWithPLD(message)
 
-            not_yet_acked.append(message)
-            not_yet_acked.sort()
+        not_yet_acked.append(message)
+        print "APPENDED with seq number: " + str(getHeaderElement(message,SEQ_NUM))
+        print message
+        not_yet_acked.sort()
 
-            #not_yet_acked_sqn.append(seqno_sender)
-            #not_yet_acked_sqn.sort()
+        #not_yet_acked_sqn.append(seqno_sender)
+        #not_yet_acked_sqn.sort()
 
-            next_seqno = int(getHeaderElement(header,SEQ_NUM)) + int(getHeaderElement(header,DATA_SIZE))
-            if (next_seqno > seqno_sender):
-                seqno_sender = next_seqno
+        next_seqno = int(getHeaderElement(header,SEQ_NUM)) + int(getHeaderElement(header,DATA_SIZE))
+        if (next_seqno > seqno_sender):
+            seqno_sender = next_seqno
 
     try:
-        senderSocket.settimeout(timeout/1000)
+        timeout_in_sec = float(timeout)/float(1000)
+        print "timeout_in_sec = " + str(timeout_in_sec)
+        senderSocket.settimeout(timeout_in_sec)
         while 1:
             # packet_received = senderSocket.recvfrom(2048)
             # if not packet_received:
@@ -300,23 +326,36 @@ while 1:
             print "received_ack: " + str(received_ack)
             print "oldest_unacked_sqn: " + str(oldest_unacked_sqn)
             print not_yet_acked_sqn
+            print len(not_yet_acked)
             if (received_ack > oldest_unacked_sqn):
                 print "here!"
+                print not_yet_acked
                 for segment in not_yet_acked:
                     segment_sqn = int(getHeaderElement(segment, SEQ_NUM))
-                    if (segment_sqn < received_ack):
+                    print "at segment: " + str(segment_sqn)
+                    print "last_ack_number: " + str(last_ack_number)
+                    if (received_ack <= last_ack_number and segment_sqn < received_ack):
+                        print "len is: " + str(len(not_yet_acked))
+                        print not_yet_acked_sqn
+                        print "deleting " + str(segment_sqn)
                         not_yet_acked_sqn.remove(segment_sqn)
                         not_yet_acked.remove(segment)
+                        print "now is: " + str(len(not_yet_acked))
+                        print not_yet_acked_sqn
+                print (len(not_yet_acked))
                 if (len(not_yet_acked) == 0):
                     print "break!"
                     break
             print not_yet_acked_sqn
     except socket.timeout:
+        print "TIMEOUT! Sending: "
+        print not_yet_acked[0]
         sendWithPLD(not_yet_acked[0])
-        senderSocket.sendto(not_yet_acked[0],(receiver_host_ip, receiver_port))
 
     print "moving window!"
     moveWindowAlong()
 
     print start
     #print segIndexToSeqNum(start)
+
+    print "\n"
