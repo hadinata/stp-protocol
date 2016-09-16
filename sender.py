@@ -345,8 +345,6 @@ while 1:
                     break
 
     except socket.timeout:
-        print "Timeout."
-        print not_yet_acked
         if (len(not_yet_acked) > 0):
             sendWithPLD(not_yet_acked[0])
             num_retransmitted_segments += 1
