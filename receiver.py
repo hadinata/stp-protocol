@@ -40,9 +40,6 @@ isn = 76400
 # current sequence number:
 seqno_rec = isn
 
-# current sender sequence number:
-curr_sender_sqn = 0
-
 # header indices constants:
 PORT = 0
 SEQ_NUM = PORT + PORT_BYTES
@@ -167,10 +164,8 @@ while 1:
     createLogEntry(message, RCV)
     fromIP, fromPort = fromAddress
     fromSQN = int(getHeaderElement(message,SEQ_NUM))
-    curr_sender_sqn = fromSQN
     if (int(message[SYN_FLAG]) == 1 and int(message[ACK_FLAG]) == 0):
-        print "SYN"
-        print "with SEQ number: " + getHeaderElement(message, SEQ_NUM)
+        print "Received SYN"
         modifiedMessage = message
         modifiedMessage = modifyHeader(modifiedMessage, ACK_FLAG, 1)    # set ack flag
         modifiedMessage = modifyHeader(modifiedMessage, SEQ_NUM, seqno_rec)
@@ -184,8 +179,6 @@ while 1:
 message, fromAddress = receiverSocket.recvfrom(2048)
 seqno_rec = int(getHeaderElement(message, ACK_NUM))
 createLogEntry(message, RCV)
-curr_sender_sqn = int(getHeaderElement(message,SEQ_NUM)) - 1
-
 
 # for buffer handling:
 
@@ -195,7 +188,6 @@ nx_ssqn = int(getHeaderElement(message,SEQ_NUM))
 
 # inline_ack is the
 inline_ack = nx_ssqn
-print "initial inline_ack" + str(inline_ack)
 
 # buffer list: where non-next segments will be stored
 buffer_list = []
@@ -206,20 +198,15 @@ received = []
 
 # handle receiving segment packets
 while 1:
-    print "\n"
     message, fromAddress = receiverSocket.recvfrom(2048)
     createLogEntry(message, RCV)
     fromIP, fromPort = fromAddress
     sender_seq_num = int(getHeaderElement(message,SEQ_NUM))
     data_size = int(getHeaderElement(message, DATA_SIZE))
-    print "RECEIVED: " + str(sender_seq_num)
-    print received
-    print "nxsqnn: " + str(nx_ssqn)
-    print "inline_ack " + str(inline_ack)
 
     # if received a fin, reply with finack
     if (int(getHeaderElement(message,FIN_FLAG)) == 1):
-        print "got FIN"
+        print "Received FIN"
         modifiedMessage = message
         modifiedMessage = modifyHeader(modifiedMessage, ACK_FLAG, 1)    # set ack flag
         modifiedMessage = modifyHeader(modifiedMessage, SEQ_NUM, seqno_rec+1)
@@ -243,21 +230,10 @@ while 1:
         num_data_segments += 1
         total_data_rcvd += data_size
 
-        print ("TWO!")
         received.append(sender_seq_num)
 
         if (inline_ack <= sender_seq_num):              # initial case
             inline_ack = sender_seq_num + data_size
-            print "INLINE_ACK NOW: " + str(inline_ack)
-
-        print "BEFORE inline ack " + str(inline_ack)
-        # if (len(buffer_list) > 0):
-        #     inline_ack = int(getHeaderElement(buffer_list[0],SEQ_NUM)) + int(getHeaderElement(buffer_list[0],DATA_SIZE))
-        #     k = 1
-        #     while (k < len(buffer_list) and
-        #             int(getHeaderElement(buffer_list[k],SEQ_NUM)) == inline_ack):
-        #         inline_ack = int(getHeaderElement(buffer_list[k],SEQ_NUM)) + int(getHeaderElement(buffer_list[k],DATA_SIZE))
-        #         k = k+1
 
         k = 0
         while (k < len(buffer_list) and
@@ -265,29 +241,18 @@ while 1:
             inline_ack = int(getHeaderElement(buffer_list[k],SEQ_NUM)) + int(getHeaderElement(buffer_list[k],DATA_SIZE))
             k = k+1
 
-        print "AFTER inline ack " + str(inline_ack)
-
         nx_ssqn = inline_ack        # now set nx_ssqn to inline_ack
-        print "nxsqnn now: " + str(nx_ssqn)
 
         writeToFile(message[START_DATA:])               # write received data to file
-        print "WRITTEN TO FILE: " + str(message[START_DATA:])
 
         # i = 0                                         # write buffered data to file
-        print "BEFORE"
-        print "inline_ack" + str(inline_ack)
-        print buffer_list
         while (len(buffer_list) > 0 and
                 int(getHeaderElement(buffer_list[0],SEQ_NUM)) <= inline_ack):
             buffer_element = buffer_list[0]
-            print "BUFFER ELEMENT WRITTEN TO FILE: " + str(buffer_element)
             writeToFile(buffer_element[START_DATA:])
             buffer_list.pop(0)#remove(buffer_element)
-        print "AFTER"
-        print buffer_list
 
         reply = createAckHeader(inline_ack, fromPort)   # reply with ack = inline_ack
-        print "2reply: " + reply
         receiverSocket.sendto(reply, fromAddress)       # send reply
         createLogEntry(reply, SEND)
 
@@ -297,28 +262,22 @@ while 1:
         num_data_segments += 1
         total_data_rcvd += data_size
 
-        print ("THREE!")
         received.append(sender_seq_num)
 
-        print "BEFORE APPEND"
-        print buffer_list
         buffer_list.append(message)                 # append message received from sender to the buffer list
         buffer_list.sort()
-        print "AFTER APPEND"
-        print buffer_list
+
         reply = createAckHeader(nx_ssqn, fromPort)  # reply with ack = next expected sqn num
         receiverSocket.sendto(reply, fromAddress)   # send reply
         createLogEntry(reply, SEND)
-        print "3reply: " + reply
 
 # handle final ACK:
 message, fromAddress = receiverSocket.recvfrom(2048)
 createLogEntry(message, RCV)
-print "\n\nReceived final ack."
+print "\nReceived final ack."
 
-print "\nConnection ended."
+print "\nConnection ended.\n"
 
-print "\n\n"
 print "Amount of (original) data received: " + str(total_data_rcvd) + " bytes"
 print "Number of (original) data segments received: " + str(num_data_segments)
 print "Number of duplicate segments: " + str(num_duplicate_segments)
