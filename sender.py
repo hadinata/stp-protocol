@@ -226,8 +226,8 @@ window_n = mws/mss
 start = 0
 end = start+window_n
 
-# hash of whether or not a seq_no has been sent
-sent = {}
+# list of sent segment sequence numbers:
+sent_sequences = []
 
 # segmentIndex
 def segIndexToSeqNum(segIndex):
@@ -244,7 +244,6 @@ not_yet_acked = []
 not_yet_acked_sqn = []
 for i in range (0, len(segments)):
     not_yet_acked_sqn.append(segIndexToSeqNum(i))
-    sent[segIndexToSeqNum(i)] = False
 
 # the last expected ack number (if the last segment's data size is mss)
 last_ack_number = segIndexToSeqNum(len(segments)-1)+mss
@@ -258,6 +257,7 @@ def generateRandom():
 
 def sendWithPLD(message):
     global num_packets_dropped
+    global sent
     rand_value = random.random()
     if (rand_value > pdrop):
         senderSocket.sendto(message, receiverAddress)
@@ -265,7 +265,7 @@ def sendWithPLD(message):
     else:
         createLogEntry(message, DROP)
         num_packets_dropped += 1
-    sent[int(getHeaderElement(message,SEQ_NUM))] = True
+    sent_sequences.append(int(getHeaderElement(message,SEQ_NUM)))
 
 
 # shift window:
@@ -297,7 +297,7 @@ while 1:
 
     # send segments in window
     for i in range (start, end):
-        if (sent[segIndexToSeqNum(i)] == False):
+        if (segIndexToSeqNum(i) not in sent_sequences):
             header = createCurrentHeader()
             header = modifyHeader(header, DATA_SIZE, len(segments[i]))
             message = header + segments[i]
@@ -345,8 +345,11 @@ while 1:
                     break
 
     except socket.timeout:
-        sendWithPLD(not_yet_acked[0])
-        num_retransmitted_segments += 1
+        print "Timeout."
+        print not_yet_acked
+        if (len(not_yet_acked) > 0):
+            sendWithPLD(not_yet_acked[0])
+            num_retransmitted_segments += 1
 
     moveWindowAlong()
 
