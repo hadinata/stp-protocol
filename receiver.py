@@ -207,6 +207,18 @@ while 1:
     print "nxsqnn: " + str(nx_ssqn)
     print "inline_ack " + str(inline_ack)
 
+    # if received a fin, reply with finack
+    if (int(getHeaderElement(message,FIN_FLAG)) == 1):
+        print "got FIN"
+        modifiedMessage = message
+        modifiedMessage = modifyHeader(modifiedMessage, ACK_FLAG, 1)    # set ack flag
+        modifiedMessage = modifyHeader(modifiedMessage, SEQ_NUM, seqno_rec)
+        modifiedMessage = modifyHeader(modifiedMessage, ACK_NUM, sender_seq_num+1)
+        modifiedMessage = modifyHeader(modifiedMessage, PORT, fromPort) # set new port
+        receiverSocket.sendto(modifiedMessage, fromAddress)
+        createLogEntry(modifiedMessage, SEND)
+        break
+
     # duplicate handling:
     if (sender_seq_num in received):
 
@@ -280,3 +292,10 @@ while 1:
         receiverSocket.sendto(reply, fromAddress)   # send reply
         createLogEntry(reply, SEND)
         print "3reply: " + reply
+
+# handle final ACK:
+message, fromAddress = receiverSocket.recvfrom(2048)
+createLogEntry(message, RCV)
+print "\n\nReceived final ack."
+
+print "\nConnection ended."

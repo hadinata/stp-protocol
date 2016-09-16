@@ -291,25 +291,25 @@ while 1:
 
     # send segments in window
     for i in range (start, end):
-        #if (sent[segIndexToSeqNum(i)] == False):
-        print "Here! At i = " + str(i)
-        header = createCurrentHeader()
-        header = modifyHeader(header, DATA_SIZE, len(segments[i]))
-        message = header + segments[i]
-        print message
-        sendWithPLD(message)
+        if (sent[segIndexToSeqNum(i)] == False):
+            print "Here! At i = " + str(i)
+            header = createCurrentHeader()
+            header = modifyHeader(header, DATA_SIZE, len(segments[i]))
+            message = header + segments[i]
+            print message
+            sendWithPLD(message)
 
-        not_yet_acked.append(message)
-        print "APPENDED with seq number: " + str(getHeaderElement(message,SEQ_NUM))
-        print message
-        not_yet_acked.sort()
+            not_yet_acked.append(message)
+            print "APPENDED with seq number: " + str(getHeaderElement(message,SEQ_NUM))
+            print message
+            not_yet_acked.sort()
 
-        #not_yet_acked_sqn.append(seqno_sender)
-        #not_yet_acked_sqn.sort()
+            #not_yet_acked_sqn.append(seqno_sender)
+            #not_yet_acked_sqn.sort()
 
-        next_seqno = int(getHeaderElement(header,SEQ_NUM)) + int(getHeaderElement(header,DATA_SIZE))
-        if (next_seqno > seqno_sender):
-            seqno_sender = next_seqno
+            next_seqno = int(getHeaderElement(header,SEQ_NUM)) + int(getHeaderElement(header,DATA_SIZE))
+            if (next_seqno > seqno_sender):
+                seqno_sender = next_seqno
 
     try:
         timeout_in_sec = float(timeout)/float(1000)
@@ -359,3 +359,33 @@ while 1:
     #print segIndexToSeqNum(start)
 
     print "\n"
+
+
+# fin:
+fin_packet = createCurrentHeader()
+fin_packet = modifyHeader(fin_packet, FIN_FLAG, 1)
+senderSocket.sendto(fin_packet, receiverAddress)
+
+# handle receiving finack:
+while 1:
+    recv_message, fromAddress = senderSocket.recvfrom(2048)
+    createLogEntry(recv_message, RCV)
+    fromIP, fromPort = fromAddress
+    fromACK = int(recv_message[ACK_NUM:SYN_FLAG])
+    fromSQN = int(recv_message[SEQ_NUM:ACK_NUM])
+    current_ack = fromSQN+1
+    print "Received from rec: " + recv_message + " with ack_num: " + str(fromACK)
+    if (int(getHeaderElement(recv_message,FIN_FLAG)) == 1 and int(getHeaderElement(recv_message,ACK_FLAG)) == 1):
+        print "received FINACK"
+        seqno_sender = fromACK
+        # send ACK:
+        reply = recv_message
+        reply = modifyHeader(reply, FIN_FLAG, 0)    # set fin flag to 0
+        reply = modifyHeader(reply, SEQ_NUM, seqno_sender)
+        reply = modifyHeader(reply, ACK_NUM, fromSQN+1)
+        reply = modifyHeader(reply, PORT, fromPort) # set new port
+        senderSocket.sendto(reply, fromAddress)
+        createLogEntry(reply, SEND)
+        break
+
+print "end."
