@@ -34,8 +34,11 @@ num_duplicate_segments = 0
 receiverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 receiverSocket.bind(('', receiver_port))
 
+# isn
+isn = 76400
+
 # current sequence number:
-seqno_rec = 66400;
+seqno_rec = isn
 
 # current sender sequence number:
 curr_sender_sqn = 0
@@ -219,7 +222,7 @@ while 1:
         print "got FIN"
         modifiedMessage = message
         modifiedMessage = modifyHeader(modifiedMessage, ACK_FLAG, 1)    # set ack flag
-        modifiedMessage = modifyHeader(modifiedMessage, SEQ_NUM, seqno_rec)
+        modifiedMessage = modifyHeader(modifiedMessage, SEQ_NUM, seqno_rec+1)
         modifiedMessage = modifyHeader(modifiedMessage, ACK_NUM, sender_seq_num+1)
         modifiedMessage = modifyHeader(modifiedMessage, PORT, fromPort) # set new port
         receiverSocket.sendto(modifiedMessage, fromAddress)
@@ -316,7 +319,7 @@ print "\n\nReceived final ack."
 print "\nConnection ended."
 
 print "\n\n"
-print "Amount of (original) data received: " + str(total_data_rcvd) + " bytes."
+print "Amount of (original) data received: " + str(total_data_rcvd) + " bytes"
 print "Number of (original) data segments received: " + str(num_data_segments)
 print "Number of duplicate segments: " + str(num_duplicate_segments)
 

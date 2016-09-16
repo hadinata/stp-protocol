@@ -60,7 +60,7 @@ DATA_SIZE = FIN_FLAG + 1
 START_DATA = DATA_SIZE + DATA_SIZE_BYTES
 
 # isn:
-isn = 33200
+isn = 03200
 
 # initial sequence and ack numbers:
 seqno_sender = isn
@@ -163,7 +163,7 @@ def createLogEntry(packet, pkt_type):
         type_string = "rcv"
     elif (pkt_type == DROP):
         type_string = "drop"
-    f.write(type_string.ljust(6) + getCurrentTime().ljust(18) + str(getPacketType(packet)).ljust(4)
+    f.write(type_string.ljust(6) + getCurrentTime().ljust(26) + str(getPacketType(packet)).ljust(4)
             + str(getHeaderElement(packet, SEQ_NUM)).ljust(7) + str(getHeaderElement(packet, DATA_SIZE)).ljust(6)
             + str(getHeaderElement(packet, ACK_NUM)).ljust(7) + "\n")
     f.close()
