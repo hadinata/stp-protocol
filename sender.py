@@ -62,11 +62,12 @@ isn = 33200
 seqno_sender = isn
 current_ack = 0
 
-# state constants:
-
-
-# initialise state:
-
+# global variables to keep track of statistics
+total_data_sent = 0
+num_data_segments = 0
+num_packets_dropped = 0
+num_retransmitted_segments = 0
+num_duplicate_acknowledgements = 0
 
 # modify component of header by assigning it value
 def modifyHeader(header, component, value):
@@ -205,11 +206,11 @@ while 1:
 
 # Now ready to send data:
 
+# open file and break it up into segments
 f = open(filename)
 filestring = f.read()
 segments = [filestring[i:i+mss] for i in range(0, len(filestring), mss)]
 f.close()
-
 
 # size of window (in terms of the number of segments it can hold)
 window_n = mws/mss
@@ -218,8 +219,7 @@ window_n = mws/mss
 start = 0
 end = start+window_n
 
-# sent index list
-# sent = [False] * len(segments)
+# hash of whether or not a seq_no has been sent
 sent = {}
 
 # segmentIndex
@@ -239,13 +239,18 @@ for i in range (0, len(segments)):
     sent[segIndexToSeqNum(i)] = False
 print not_yet_acked_sqn
 
+# the last expected ack number (if the last segment's data size is mss)
 last_ack_number = segIndexToSeqNum(len(segments)-1)+mss
+
+# hash of number of times an ack has been received
+numTimesReceived = {}
 
 # PLD:
 def generateRandom():
     return random.random()
 
 def sendWithPLD(message):
+    global num_packets_dropped
     rand_value = random.random()
     print "Random Value: " + str(rand_value)
     if (rand_value > pdrop):
@@ -255,6 +260,7 @@ def sendWithPLD(message):
         createLogEntry(message, SEND)
     else:
         createLogEntry(message, DROP)
+        num_packets_dropped += 1
     sent[int(getHeaderElement(message,SEQ_NUM))] = True
 
 
@@ -281,6 +287,7 @@ def moveWindowAlong():
         end += shifted_by
 
 
+# main loop:
 
 while 1:
 
@@ -298,6 +305,8 @@ while 1:
             message = header + segments[i]
             print message
             sendWithPLD(message)
+            total_data_sent += len(segments[i])
+            num_data_segments += 1
 
             not_yet_acked.append(message)
             print "APPENDED with seq number: " + str(getHeaderElement(message,SEQ_NUM))
@@ -322,6 +331,16 @@ while 1:
             returned_message, fromAddress = senderSocket.recvfrom(2048)
             createLogEntry(returned_message, RCV)
             received_ack = int(getHeaderElement(returned_message, ACK_NUM))
+            if (received_ack not in numTimesReceived or numTimesReceived[received_ack] == 0):
+                numTimesReceived[received_ack] = 1
+            else:
+                if (numTimesReceived[received_ack] == 4):
+                    print "Fast retransmit"
+                    # fast retransmit..
+                    #
+                    #
+                numTimesReceived[received_ack] += 1
+                num_duplicate_acknowledgements += 1
             oldest_unacked_sqn = int(getHeaderElement(not_yet_acked[0],SEQ_NUM))
             print "received_ack: " + str(received_ack)
             print "oldest_unacked_sqn: " + str(oldest_unacked_sqn)
@@ -351,6 +370,7 @@ while 1:
         print "TIMEOUT! Sending: "
         print not_yet_acked[0]
         sendWithPLD(not_yet_acked[0])
+        num_retransmitted_segments += 1
 
     print "moving window!"
     moveWindowAlong()
@@ -386,6 +406,22 @@ while 1:
         reply = modifyHeader(reply, PORT, fromPort) # set new port
         senderSocket.sendto(reply, fromAddress)
         createLogEntry(reply, SEND)
+        print "Final ack sent."
         break
 
-print "end."
+print "\nConnection ended."
+
+print "\n\n"
+print "Amount of (original) data sent: " + str(total_data_sent) + " bytes."
+print "Number of (original) data segments sent: " + str(num_data_segments)
+print "Number of all packets dropped (by PLD): "  + str(num_packets_dropped)
+print "Number of retransmitted segments: " + str(num_retransmitted_segments)
+print "Number of duplicate acks received: " + str(num_duplicate_acknowledgements)
+
+f = open("Sender_log.txt", "a")
+f.write("Amount of (original) data sent: " + str(total_data_sent) + " bytes." + "\n")
+f.write("Number of (original) data segments sent: " + str(num_data_segments) + "\n")
+f.write("Number of all packets dropped (by PLD): "  + str(num_packets_dropped) + "\n")
+f.write("Number of retransmitted segments: " + str(num_retransmitted_segments) + "\n")
+f.write("Number of duplicate acks received: " + str(num_duplicate_acknowledgements) + "\n")
+f.close()

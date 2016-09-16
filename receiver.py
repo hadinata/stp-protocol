@@ -317,10 +317,10 @@ print "\nConnection ended."
 print "\n\n"
 print "Amount of (original) data received: " + str(total_data_rcvd) + " bytes."
 print "Number of (original) data segments received: " + str(num_data_segments)
-print "Amount of duplicate segments: " + str(num_duplicate_segments)
+print "Number of duplicate segments: " + str(num_duplicate_segments)
 
 f = open("Receiver_log.txt", "a")
 f.write("Amount of (original) data received: " + str(total_data_rcvd) + " bytes." + "\n")
 f.write("Number of (original) data segments received: " + str(num_data_segments) + "\n")
-f.write("Amount of duplicate segments: " + str(num_duplicate_segments) + "\n")
+f.write("Number of duplicate segments: " + str(num_duplicate_segments) + "\n")
 f.close()
