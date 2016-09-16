@@ -195,7 +195,7 @@ while 1:
     createLogEntry(recv_message, RCV)
     fromIP, fromPort = fromAddress
     fromACK = int(getHeaderElement(recv_message, ACK_NUM))
-    fromSQN = int(getHeaderElement(recv_message, ACK_NUM))
+    fromSQN = int(getHeaderElement(recv_message, SEQ_NUM))
     current_ack = fromSQN+1
     if (int(getHeaderElement(recv_message,SYN_FLAG)) == 1 and int(getHeaderElement(recv_message,ACK_FLAG)) == 1):
         print "Received SYNACK"

@@ -35,7 +35,7 @@ receiverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 receiverSocket.bind(('', receiver_port))
 
 # isn
-isn = 76400
+isn = 76554
 
 # current sequence number:
 seqno_rec = isn
