@@ -139,7 +139,7 @@ def createLogEntry(packet, pkt_type):
         type_string = "rcv"
     elif (pkt_type == DROP):
         type_string = "drop"
-    f.write(type_string.ljust(6) + getCurrentTime().ljust(26) + str(getPacketType(packet)).ljust(4)
+    f.write(type_string.ljust(6) + getCurrentTime().ljust(18) + str(getPacketType(packet)).ljust(4)
             + str(getHeaderElement(packet, SEQ_NUM)).ljust(7) + str(getHeaderElement(packet, DATA_SIZE)).ljust(6)
             + str(getHeaderElement(packet, ACK_NUM)).ljust(7) + "\n")
     f.close()
@@ -179,6 +179,7 @@ while 1:
 
 # handle ACK:
 message, fromAddress = receiverSocket.recvfrom(2048)
+seqno_rec = int(getHeaderElement(message, ACK_NUM))
 createLogEntry(message, RCV)
 curr_sender_sqn = int(getHeaderElement(message,SEQ_NUM)) - 1
 
@@ -320,6 +321,7 @@ print "Number of (original) data segments received: " + str(num_data_segments)
 print "Number of duplicate segments: " + str(num_duplicate_segments)
 
 f = open("Receiver_log.txt", "a")
+f.write("\n")
 f.write("Amount of (original) data received: " + str(total_data_rcvd) + " bytes." + "\n")
 f.write("Number of (original) data segments received: " + str(num_data_segments) + "\n")
 f.write("Number of duplicate segments: " + str(num_duplicate_segments) + "\n")

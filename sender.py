@@ -28,7 +28,7 @@ receiver_port = int(sys.argv[2])
 filename = sys.argv[3];
 mws = int(sys.argv[4]);
 mss = int(sys.argv[5]);
-timeout = int(sys.argv[6]);
+timeout = float(sys.argv[6]);
 pdrop = float(sys.argv[7]);
 seed = int(sys.argv[8]);
 
@@ -37,6 +37,10 @@ receiverAddress = (receiver_host_ip, receiver_port)
 
 # initialise randomiser with seed
 random.seed(seed)
+
+# convert timeout time to seconds
+timeout_in_sec = float(timeout)/float(1000)
+print "timeout_in_sec = " + str(timeout_in_sec)
 
 # HEADER STRUCTURE:
 # 5B - receiver port
@@ -159,7 +163,7 @@ def createLogEntry(packet, pkt_type):
         type_string = "rcv"
     elif (pkt_type == DROP):
         type_string = "drop"
-    f.write(type_string.ljust(6) + getCurrentTime().ljust(26) + str(getPacketType(packet)).ljust(4)
+    f.write(type_string.ljust(6) + getCurrentTime().ljust(18) + str(getPacketType(packet)).ljust(4)
             + str(getHeaderElement(packet, SEQ_NUM)).ljust(7) + str(getHeaderElement(packet, DATA_SIZE)).ljust(6)
             + str(getHeaderElement(packet, ACK_NUM)).ljust(7) + "\n")
     f.close()
@@ -296,6 +300,9 @@ while 1:
     if (start >= end):
         break
 
+    # start timer just before sending first segment in window
+    senderSocket.settimeout(timeout_in_sec)
+
     # send segments in window
     for i in range (start, end):
         if (sent[segIndexToSeqNum(i)] == False):
@@ -321,15 +328,14 @@ while 1:
                 seqno_sender = next_seqno
 
     try:
-        timeout_in_sec = float(timeout)/float(1000)
-        print "timeout_in_sec = " + str(timeout_in_sec)
-        senderSocket.settimeout(timeout_in_sec)
         while 1:
             # packet_received = senderSocket.recvfrom(2048)
             # if not packet_received:
             #     continue
             returned_message, fromAddress = senderSocket.recvfrom(2048)
             createLogEntry(returned_message, RCV)
+            if (len(not_yet_acked) > 0):
+                senderSocket.settimeout(timeout_in_sec) # restart timer
             received_ack = int(getHeaderElement(returned_message, ACK_NUM))
             if (received_ack not in numTimesReceived or numTimesReceived[received_ack] == 0):
                 numTimesReceived[received_ack] = 1
@@ -366,7 +372,7 @@ while 1:
                     break
             print not_yet_acked_sqn
     except socket.timeout:
-        print "TIMEOUT! Sending: "
+        print "TIMEOUT! Resending: "
         print not_yet_acked[0]
         sendWithPLD(not_yet_acked[0])
         num_retransmitted_segments += 1
@@ -384,6 +390,7 @@ while 1:
 fin_packet = createCurrentHeader()
 fin_packet = modifyHeader(fin_packet, FIN_FLAG, 1)
 senderSocket.sendto(fin_packet, receiverAddress)
+createLogEntry(fin_packet, SEND)
 
 # handle receiving finack:
 while 1:
@@ -418,6 +425,7 @@ print "Number of retransmitted segments: " + str(num_retransmitted_segments)
 print "Number of duplicate acks received: " + str(num_duplicate_acknowledgements)
 
 f = open("Sender_log.txt", "a")
+f.write("\n")
 f.write("Amount of (original) data sent: " + str(total_data_sent) + " bytes." + "\n")
 f.write("Number of (original) data segments sent: " + str(num_data_segments) + "\n")
 f.write("Number of all packets dropped (by PLD): "  + str(num_packets_dropped) + "\n")
