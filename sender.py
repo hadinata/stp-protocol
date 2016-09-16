@@ -127,9 +127,9 @@ def createCurrentHeader():
     header = port + seq_num + ack_num + syn_flag + ack_flag + fin_flag + data_size
     return header
 
-# create empty log file:
+# create new empty log file:
 f = open("Sender_log.txt", "w")
-f.write("")
+f.write("TYPE".ljust(6) +  "HH:MM:SS ms".ljust(18) + "".ljust(4) + "SEQ #".ljust(7) + "SIZE".ljust(6) + "ACK #".ljust(7) + "\n\n")
 f.close()
 
 # get packet type:
@@ -163,7 +163,7 @@ def createLogEntry(packet, pkt_type):
         type_string = "rcv"
     elif (pkt_type == DROP):
         type_string = "drop"
-    f.write(type_string.ljust(6) + getCurrentTime().ljust(26) + str(getPacketType(packet)).ljust(4)
+    f.write(type_string.ljust(6) + getCurrentTime().ljust(18) + str(getPacketType(packet)).ljust(4)
             + str(getHeaderElement(packet, SEQ_NUM)).ljust(7) + str(getHeaderElement(packet, DATA_SIZE)).ljust(6)
             + str(getHeaderElement(packet, ACK_NUM)).ljust(7) + "\n")
     f.close()

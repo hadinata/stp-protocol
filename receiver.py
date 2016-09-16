@@ -106,9 +106,9 @@ def createAckHeader(ack_num, port):
     header = port + seq_num + ack_num + syn_flag + ack_flag + fin_flag + data_size
     return header
 
-# create empty log file:
+# create new empty log file:
 f = open("Receiver_log.txt", "w")
-f.write("")
+f.write("TYPE".ljust(6) +  "HH:MM:SS ms".ljust(18) + "".ljust(4) + "SEQ #".ljust(7) + "SIZE".ljust(6) + "ACK #".ljust(7) + "\n\n")
 f.close()
 
 # get packet type:
