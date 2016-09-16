@@ -25,6 +25,11 @@ DROP = 2
 receiver_port = int(sys.argv[1])
 filename = sys.argv[2]
 
+# global variables to keep track of statistics
+total_data_rcvd = 0
+num_data_segments = 0
+num_duplicate_segments = 0
+
 # Set up receiver socket
 receiverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 receiverSocket.bind(('', receiver_port))
@@ -150,6 +155,7 @@ def writeToFile(string):
     f.write(str(string))
     f.close()
 
+
 # -------------------------------------------------------------- #
 
 # handle receiving SYN
@@ -223,11 +229,16 @@ while 1:
     if (sender_seq_num in received):
 
         print "Duplicate detected - seq num: " + str(sender_seq_num)
+        num_duplicate_segments += 1
         reply = createAckHeader(nx_ssqn, fromPort)  # reply with ack = nx_ssqn
         receiverSocket.sendto(reply, fromAddress)
 
     # if sender_seq_num is the next expected one in order (nx_ssqn)
     elif (sender_seq_num == nx_ssqn):
+
+        num_data_segments += 1
+        total_data_rcvd += data_size
+
         print ("TWO!")
         received.append(sender_seq_num)
 
@@ -279,6 +290,9 @@ while 1:
     # if sender_seq_num is bigger than the next expected one
     elif (sender_seq_num > nx_ssqn):
 
+        num_data_segments += 1
+        total_data_rcvd += data_size
+
         print ("THREE!")
         received.append(sender_seq_num)
 
@@ -299,3 +313,14 @@ createLogEntry(message, RCV)
 print "\n\nReceived final ack."
 
 print "\nConnection ended."
+
+print "\n\n"
+print "Amount of (original) data received: " + str(total_data_rcvd) + " bytes."
+print "Number of (original) data segments received: " + str(num_data_segments)
+print "Amount of duplicate segments: " + str(num_duplicate_segments)
+
+f = open("Receiver_log.txt", "a")
+f.write("Amount of (original) data received: " + str(total_data_rcvd) + " bytes." + "\n")
+f.write("Number of (original) data segments received: " + str(num_data_segments) + "\n")
+f.write("Amount of duplicate segments: " + str(num_duplicate_segments) + "\n")
+f.close()
